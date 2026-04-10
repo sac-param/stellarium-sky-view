@@ -1,0 +1,40 @@
+// Auto generated from tools/makeassets.py
+
+static const unsigned char DATA_shaders\mesh_glsl[621] __attribute__((aligned(4))) =
+    "/* Stellarium Web Engine - Copyright (c) 2022 - Stellarium Labs SRL\n"
+    " *\n"
+    " * This program is licensed under the terms of the GNU AGPL v3, or\n"
+    " * alternatively under a commercial licence.\n"
+    " *\n"
+    " * The terms of the AGPL v3 license can be found in the main directory of this\n"
+    " * repository.\n"
+    " */\n"
+    "\n"
+    "varying   lowp    vec4 v_color;\n"
+    "\n"
+    "#ifdef VERTEX_SHADER\n"
+    "\n"
+    "#includes \"projections.glsl\"\n"
+    "\n"
+    "attribute highp   vec3 a_pos;\n"
+    "attribute lowp    vec4 a_color;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = proj(a_pos);\n"
+    "    v_color = a_color;\n"
+    "}\n"
+    "\n"
+    "#endif\n"
+    "#ifdef FRAGMENT_SHADER\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    gl_FragColor = v_color;\n"
+    "}\n"
+    "\n"
+    "#endif\n"
+    "";
+
+ASSET_REGISTER(shaders\mesh_glsl, "shaders\mesh.glsl", DATA_shaders\mesh_glsl, false)
+
