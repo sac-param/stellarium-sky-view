@@ -64,19 +64,19 @@
         </div>
       </v-container>
     </v-main>
-<v-dialog v-model="idleDialogVisible" persistent max-width="400">
-    <v-card>
-      <v-card-title class="text-h5">Are you still there?</v-card-title>
-      <v-card-text>
-        The session will automatically reload in {{ idleCountdown }} seconds if no response.
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="primary" @click="continueSession">Continue</v-btn>
-        <!-- <v-btn color="error" @click="reloadApp">Reload</v-btn> -->
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    <v-dialog v-model="idleDialogVisible" persistent max-width="400">
+      <v-card>
+        <v-card-title class="text-h5">Are you still there?</v-card-title>
+        <v-card-text>
+          The session will automatically reload in {{ idleCountdown }} seconds if no response.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" @click="continueSession">Continue</v-btn>
+          <!-- <v-btn color="error" @click="reloadApp">Reload</v-btn> -->
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
   </v-app>
 
@@ -324,6 +324,34 @@ export default {
           that.$stel.core.constellations.show_only_pointed = true
 
           that.setStateFromQueryArgs()
+          // Cinematic pan on load
+          const startYaw = that.$stel.core.observer.yaw
+          const startPitch = that.$stel.core.observer.pitch
+          const startFov = that.$stel.core.fov
+          const targetYaw = startYaw + 360 * Math.PI / 180 // full 360 rotation
+          const targetPitch = startPitch + 60 * Math.PI / 180 // tilt 60 degrees up
+          const targetFov = startFov * 0.25 // zoom in 75%
+          const duration = 25000 // 25 seconds
+          const startTime = performance.now()
+
+          function animateView (currentTime) {
+            const elapsed = currentTime - startTime
+            const progress = Math.min(elapsed / duration, 1)
+
+            const ease = progress < 0.5
+              ? 4 * progress * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+            that.$stel.core.observer.yaw = startYaw + (targetYaw - startYaw) * ease
+            that.$stel.core.observer.pitch = startPitch + (targetPitch - startPitch) * ease
+            that.$stel.core.fov = startFov + (targetFov - startFov) * ease
+
+            if (progress < 1) {
+              requestAnimationFrame(animateView)
+            }
+          }
+
+          requestAnimationFrame(animateView)
           that.guiComponent = 'Gui'
           for (const i in that.$stellariumWebPlugins()) {
             const plugin = that.$stellariumWebPlugins()[i]
