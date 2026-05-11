@@ -1,17 +1,18 @@
 <template>
   <div style="position: absolute; display:flex; align-items: flex-end;">
-    <v-btn large class="tmenubt" color="secondary" style="position: absolute; bottom: 1020px;left: 0;">
+    <v-btn v-show="showTimeButton" large class="tmenubt" color="secondary"
+      style="position: absolute; bottom: 1020px; left: 0;">
       <span class="hidden-xs-only">
         <div class="text-subtitle-2">{{ time }}</div>
         <div class="text-caption">{{ date }}</div>
       </span>
-    </v-btn>
+      </v-btn>
 
-    <v-dialog v-model="dialogOpen" persistent :fullscreen="false" content-class="custom-dialog"
-      transition="dialog-bottom-transition">
-      <date-time-picker :value="pickerValue" :location="$store.state.currentLocation" @input="updateTime"
-        @close="closeDialog" />
-    </v-dialog>
+      <v-dialog v-model="dialogOpen" persistent :fullscreen="false" content-class="custom-dialog"
+        transition="dialog-bottom-transition">
+        <date-time-picker :value="pickerValue" :location="$store.state.currentLocation" @input="updateTime"
+          @close="closeDialog" />
+      </v-dialog>
   </div>
 </template>
 
@@ -24,11 +25,12 @@ const LEGACY_STORAGE_KEY = 'manualDateTimeISO'
 
 export default {
   components: { DateTimePicker },
-
   data () {
     return {
       dialogOpen: false,
-      storedDateTimeLocal: null
+      storedDateTimeLocal: null,
+      showTimeButton: true,
+      hideTimer: null
     }
   },
 
@@ -49,9 +51,30 @@ export default {
 
   mounted () {
     this.initStoredDateTime()
+    window.addEventListener('keydown', this.handleKeyDown)
+  },
+  beforeDestroy () {
+    window.removeEventListener('keydown', this.handleKeyDown)
+
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer)
+    }
   },
 
   methods: {
+    handleKeyDown (event) {
+      if (event.key.toLowerCase() !== 's') return
+
+      this.showTimeButton = true
+
+      if (this.hideTimer) {
+        clearTimeout(this.hideTimer)
+      }
+
+      this.hideTimer = setTimeout(() => {
+        this.showTimeButton = false
+      }, 2000)
+    },
     readStoredDateTimeObject () {
       try {
         const params = new URLSearchParams(window.location.search)

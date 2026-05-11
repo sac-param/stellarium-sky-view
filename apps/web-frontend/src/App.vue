@@ -1,13 +1,4 @@
-// Stellarium Web - Copyright (c) 2022 - Stellarium Labs SRL
-//
-// This program is licensed under the terms of the GNU AGPL v3, or
-// alternatively under a commercial licence.
-//
-// The terms of the AGPL v3 license can be found in the main directory of this
-// repository.
-
 <template>
-
   <v-app>
     <v-navigation-drawer v-model="nav" app stateless width="300">
       <v-layout column fill-height>
@@ -25,27 +16,33 @@
               </v-list-item-content>
             </v-list-item>
             <template v-else>
-              <v-list-item v-if='item.link' target="_blank" rel="noopener" :href='item.link' :key="i">
+              <v-list-item v-if="item.link" target="_blank" rel="noopener" :href="item.link" :key="i">
                 <v-list-item-icon><v-icon>{{ item.icon }}</v-icon></v-list-item-icon>
                 <v-list-item-title v-text="item.title" />
                 <v-icon disabled>mdi-open-in-new</v-icon>
               </v-list-item>
-              <v-list-item v-else-if='item.footer === undefined' @click.stop="toggleStoreValue(item.store_var_name)"
-                :key="i">
+              <v-list-item
+                v-else-if="item.footer === undefined"
+                @click.stop="toggleStoreValue(item.store_var_name)"
+                :key="i"
+              >
                 <v-list-item-icon><v-icon>{{ item.icon }}</v-icon></v-list-item-icon>
                 <v-list-item-title v-text="item.title" />
               </v-list-item>
             </template>
           </template>
         </v-list>
+
         <template v-for="(item, i) in menuComponents">
           <component :is="item" :key="i"></component>
         </template>
+
         <v-spacer></v-spacer>
+
         <v-list dense>
           <v-divider class="divider_menu" />
           <template v-for="(item, i) in menuItems">
-            <v-list-item v-if='item.footer' @click.stop="toggleStoreValue(item.store_var_name)" :key="i">
+            <v-list-item v-if="item.footer" @click.stop="toggleStoreValue(item.store_var_name)" :key="i">
               <v-list-item-icon><v-icon>{{ item.icon }}</v-icon></v-list-item-icon>
               <v-list-item-title v-text="item.title" />
             </v-list-item>
@@ -58,12 +55,19 @@
       <v-container class="fill-height" fluid style="padding: 0">
         <div id="stel" v-bind:class="{ right_panel: $store.state.showSidePanel }">
           <div style="position: relative; width: 100%; height: 100%">
-            <component v-bind:is="guiComponent"></component>
-            <canvas id="stel-canvas" ref='stelCanvas'></canvas>
+            <Gui v-if="guiReady" class="gui-layer" />
+
+            <GuiLoader
+              v-if="showLoader"
+              class="loader-layer"
+            />
+
+            <canvas id="stel-canvas" ref="stelCanvas"></canvas>
           </div>
         </div>
       </v-container>
     </v-main>
+
     <v-dialog v-model="idleDialogVisible" persistent max-width="400">
       <v-card>
         <v-card-title class="text-h5">Are you still there?</v-card-title>
@@ -73,17 +77,13 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn color="primary" @click="continueSession">Continue</v-btn>
-          <!-- <v-btn color="error" @click="reloadApp">Reload</v-btn> -->
         </v-card-actions>
       </v-card>
     </v-dialog>
-
   </v-app>
-
 </template>
 
 <script>
-
 import _ from 'lodash'
 import Gui from '@/components/gui.vue'
 import GuiLoader from '@/components/gui-loader.vue'
@@ -101,7 +101,11 @@ export default {
         { title: this.$t('Data Credits'), footer: true, icon: 'mdi-copyright', store_var_name: 'showDataCreditsDialog' }
       ]),
       menuComponents: [].concat(this.getPluginsMenuComponents()),
-      guiComponent: 'GuiLoader',
+
+      showLoader: true,
+      guiReady: false,
+      loaderStartTime: performance.now(),
+
       startTimeIsSet: false,
       initDone: false,
       dataSourceInitDone: false,
@@ -112,7 +116,9 @@ export default {
       timerStarted: false
     }
   },
+
   components: { Gui, GuiLoader },
+
   methods: {
     clearInactivityTimer () {
       if (this.inactivityTimer) {
@@ -122,12 +128,13 @@ export default {
     },
 
     startInactivityTimer () {
-      console.log('[App] startInactivityTimer called') // <-- ADD THIS
+      console.log('[App] startInactivityTimer called')
       this.clearInactivityTimer()
       this.inactivityTimer = setTimeout(() => {
         this.showIdleDialog()
-      }, 5000) // 100 seconds
+      }, 5000)
     },
+
     resetInactivityTimer () {
       if (this.timerStarted && !this.idleDialogVisible) {
         console.log('[App] resetInactivityTimer: restarting timer')
@@ -154,12 +161,13 @@ export default {
     continueSession () {
       clearInterval(this.idleDialogTimer)
       this.idleDialogVisible = false
-      this.startInactivityTimer() // restart the inactivity timer
+      this.startInactivityTimer()
     },
 
     reloadApp () {
       window.location.reload()
     },
+
     getPluginsMenuItems: function () {
       let res = []
       for (const i in this.$stellariumWebPlugins()) {
@@ -170,6 +178,7 @@ export default {
       }
       return res
     },
+
     getPluginsMenuComponents: function () {
       let res = []
       for (const i in this.$stellariumWebPlugins()) {
@@ -180,23 +189,24 @@ export default {
       }
       return res
     },
+
     toggleStoreValue: function (storeVarName) {
       this.$store.commit('toggleBool', storeVarName)
     },
+
     getStoreValue: function (storeVarName) {
       return _.get(this.$store.state, storeVarName)
     },
+
     setStateFromQueryArgs: function () {
-      // Check whether the observing panel must be displayed
       this.$store.commit('setValue', { varName: 'showSidePanel', newValue: this.$route.path.startsWith('/p/') })
 
-      // Set the core's state from URL query arguments such
-      // as date, location, view direction & fov
       var that = this
 
       if (!this.initDone) {
         this.$stel.core.time_speed = 1
         let d = new Date()
+
         if (this.$route.query.date) {
           d = new Moment(this.$route.query.date).toDate()
           this.$stel.core.observer.utc = d.getMJD()
@@ -204,7 +214,13 @@ export default {
         }
 
         if (this.$route.query.lng && this.$route.query.lat) {
-          const pos = { lat: Number(this.$route.query.lat), lng: Number(this.$route.query.lng), alt: this.$route.query.elev ? Number(this.$route.query.elev) : 0, accuracy: 1 }
+          const pos = {
+            lat: Number(this.$route.query.lat),
+            lng: Number(this.$route.query.lng),
+            alt: this.$route.query.elev ? Number(this.$route.query.elev) : 0,
+            accuracy: 1
+          }
+
           swh.geoCodePosition(pos, that).then((loc) => {
             that.$store.commit('setCurrentLocation', loc)
           }, (error) => { console.log(error) })
@@ -220,18 +236,23 @@ export default {
       if (this.$route.path.startsWith('/skysource/')) {
         const name = decodeURIComponent(this.$route.path.substring(11))
         console.log('Will select object: ' + name)
+
         return swh.lookupSkySourceByName(name).then(ss => {
           if (!ss) {
             return
           }
+
           let obj = swh.skySource2SweObj(ss)
+
           if (!obj) {
             obj = this.$stel.createObj(ss.model, ss)
             this.$selectionLayer.add(obj)
           }
+
           if (!obj) {
             console.warning("Can't find object in SWE: " + ss.names[0])
           }
+
           swh.setSweObjAsSelection(obj)
         }, err => {
           console.log(err)
@@ -240,6 +261,7 @@ export default {
       }
     }
   },
+
   computed: {
     nav: {
       get: function () {
@@ -251,53 +273,54 @@ export default {
         }
       }
     },
+
     storeCurrentLocation: function () {
       return this.$store.state.currentLocation
     }
   },
+
   watch: {
     storeCurrentLocation: function (loc) {
       const DD2R = Math.PI / 180
+
       this.$stel.core.observer.latitude = loc.lat * DD2R
       this.$stel.core.observer.longitude = loc.lng * DD2R
       this.$stel.core.observer.elevation = loc.alt
 
-      // At startup, we need to wait for the location to be set before deciding which
-      // startup time to set so that it's night time.
       if (!this.startTimeIsSet) {
         this.$stel.core.observer.utc = swh.getTimeAfterSunset(this.$stel)
         this.startTimeIsSet = true
       }
-      // Init of time and date is complete
+
       this.$store.commit('setValue', { varName: 'initComplete', newValue: true })
     },
+
     $route: function () {
-      // react to route changes...
       this.setStateFromQueryArgs()
     }
   },
+
   mounted: function () {
-    // Listen for user activity
     const activityEvents = ['mousemove', 'click', 'keydown']
+
     const onActivity = () => {
       if (!this.idleDialogVisible) {
         this.resetInactivityTimer()
       }
     }
+
     activityEvents.forEach(event => window.addEventListener(event, onActivity))
-    // Store the function to remove later
     this._activityHandler = onActivity
 
-    // Listen for the custom event when user submits the form
     this.$root.$on('user-submitted', () => {
       if (!this.timerStarted) {
         this.timerStarted = true
         this.startInactivityTimer()
       } else {
-        // Reset the timer on subsequent submissions
         this.resetInactivityTimer()
       }
     })
+
     var that = this
 
     for (const i in this.$stellariumWebPlugins()) {
@@ -308,13 +331,8 @@ export default {
     }
 
     import('@/assets/js/stellarium-web-engine.wasm').then(f => {
-      // Initialize the StelWebEngine viewer singleton
-      // After this call, the StelWebEngine state will always be available in vuex store
-      // in the $store.stel object in a reactive way (useful for vue components).
-      // To modify the state of the StelWebEngine, it's enough to call/set values directly on the $stel object
       try {
         swh.initStelWebEngine(that.$store, f.default, that.$refs.stelCanvas, function () {
-          // Start auto location detection (even if we don't use it)
           swh.getGeolocation().then(p => swh.geoCodePosition(p, that)).then((loc) => {
             that.$store.commit('setAutoDetectedLocation', loc)
           }, (error) => { console.log(error) })
@@ -324,14 +342,14 @@ export default {
           that.$stel.core.constellations.show_only_pointed = true
 
           that.setStateFromQueryArgs()
-          // Cinematic pan on load
+
           const startYaw = that.$stel.core.observer.yaw
           const startPitch = that.$stel.core.observer.pitch
           const startFov = that.$stel.core.fov
-          const targetYaw = startYaw + 360 * Math.PI / 180 // full 360 rotation
-          const targetPitch = startPitch + 60 * Math.PI / 180 // tilt 60 degrees up
-          const targetFov = startFov * 0.25 // zoom in 75%
-          const duration = 25000 // 25 seconds
+          const targetYaw = startYaw + 360 * Math.PI / 180
+          const targetPitch = startPitch + 60 * Math.PI / 180
+          const targetFov = startFov * 0.25
+          const duration = 25000
           const startTime = performance.now()
 
           function animateView (currentTime) {
@@ -352,7 +370,16 @@ export default {
           }
 
           requestAnimationFrame(animateView)
-          that.guiComponent = 'Gui'
+
+          that.guiReady = true
+
+          const loaderElapsed = performance.now() - that.loaderStartTime
+          const loaderRemaining = Math.max(0, 5000 - loaderElapsed)
+
+          setTimeout(() => {
+            that.showLoader = false
+          }, loaderRemaining)
+
           for (const i in that.$stellariumWebPlugins()) {
             const plugin = that.$stellariumWebPlugins()[i]
             if (plugin.onEngineReady) {
@@ -361,9 +388,10 @@ export default {
           }
 
           if (!that.dataSourceInitDone) {
-            // Set all default data sources
             const core = that.$stel.core
+
             core.stars.addDataSource({ url: process.env.BASE_URL + 'skydata/stars' })
+
             core.constellations.lines_visible = true
             that.$store.state.stel.constellations.lines_visible = true
             core.constellations.labels_visible = true
@@ -376,24 +404,57 @@ export default {
               core.skycultures.addDataSource({ url: that.$route.query.sc, key: key })
               core.skycultures.current_id = key
             } else {
-              core.skycultures.addDataSource({ url: process.env.BASE_URL + 'skydata/skycultures/western', key: 'western' })
+              core.skycultures.addDataSource({
+                url: process.env.BASE_URL + 'skydata/skycultures/western',
+                key: 'western'
+              })
             }
 
             core.dsos.addDataSource({ url: process.env.BASE_URL + 'skydata/dso' })
+
             core.atmosphere.visible = false
             that.$store.state.stel.atmosphere.visible = false
-            core.landscapes.addDataSource({ url: process.env.BASE_URL + 'skydata/landscapes/guereins', key: 'guereins' })
+
+            core.landscapes.addDataSource({
+              url: process.env.BASE_URL + 'skydata/landscapes/guereins',
+              key: 'guereins'
+            })
             core.landscapes.visible = false
             that.$store.state.stel.landscapes.visible = false
+
             core.milkyway.addDataSource({ url: process.env.BASE_URL + 'skydata/surveys/milkyway' })
             core.milkyway.visible = false
             that.$store.state.stel.milkyway.visible = false
-            core.minor_planets.addDataSource({ url: process.env.BASE_URL + 'skydata/mpcorb.dat', key: 'mpc_asteroids' })
-            core.planets.addDataSource({ url: process.env.BASE_URL + 'skydata/surveys/sso/moon', key: 'moon' })
-            core.planets.addDataSource({ url: process.env.BASE_URL + 'skydata/surveys/sso/sun', key: 'sun' })
-            core.planets.addDataSource({ url: process.env.BASE_URL + 'skydata/surveys/sso/moon', key: 'default' })
-            core.comets.addDataSource({ url: process.env.BASE_URL + 'skydata/CometEls.txt', key: 'mpc_comets' })
-            core.satellites.addDataSource({ url: process.env.BASE_URL + 'skydata/tle_satellite.jsonl.gz', key: 'jsonl/sat' })
+
+            core.minor_planets.addDataSource({
+              url: process.env.BASE_URL + 'skydata/mpcorb.dat',
+              key: 'mpc_asteroids'
+            })
+
+            core.planets.addDataSource({
+              url: process.env.BASE_URL + 'skydata/surveys/sso/moon',
+              key: 'moon'
+            })
+
+            core.planets.addDataSource({
+              url: process.env.BASE_URL + 'skydata/surveys/sso/sun',
+              key: 'sun'
+            })
+
+            core.planets.addDataSource({
+              url: process.env.BASE_URL + 'skydata/surveys/sso/moon',
+              key: 'default'
+            })
+
+            core.comets.addDataSource({
+              url: process.env.BASE_URL + 'skydata/CometEls.txt',
+              key: 'mpc_comets'
+            })
+
+            core.satellites.addDataSource({
+              url: process.env.BASE_URL + 'skydata/tle_satellite.jsonl.gz',
+              key: 'jsonl/sat'
+            })
           }
         })
       } catch (e) {
@@ -403,14 +464,18 @@ export default {
   },
 
   beforeDestroy () {
-    // Remove event listeners
     const activityEvents = ['mousemove', 'click', 'keydown']
+
     if (this._activityHandler) {
       activityEvents.forEach(event => window.removeEventListener(event, this._activityHandler))
     }
-    // Clear timers
+
     this.clearInactivityTimer()
-    if (this.idleDialogTimer) clearTimeout(this.idleDialogTimer)
+
+    if (this.idleDialogTimer) {
+      clearTimeout(this.idleDialogTimer)
+    }
+
     this.$root.$off('user-submitted')
   }
 }
@@ -478,6 +543,20 @@ body,
 
 #stel-canvas {
   z-index: -10;
+  width: 100%;
+  height: 100%;
+}
+
+.gui-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.loader-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
   width: 100%;
   height: 100%;
 }
